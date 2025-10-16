@@ -1,0 +1,41 @@
+[
+  {
+    "timestamp": "2025-01-01 10:00:00",
+    "price": 1.2345,
+    "instrument": "EURUSD",
+    "base_signal": true,
+    "base_direction": 1,
+    "base_cross_price": 1.234
+  },
+  {
+    "timestamp": "2025-01-01 10:00:01",
+    "price": 1.235,
+    "instrument": "EURUSD"
+  },
+  {
+    "timestamp": "2025-01-01 10:00:02",
+    "price": 1.236,
+    "instrument": "EURUSD",
+    "base_signal": true,
+    "base_direction": -1,
+    "base_cross_price": 1.2365
+  },
+  {
+    "timestamp": "2025-01-01 10:00:03",
+    "price": 1.2355,
+    "instrument": "EURUSD"
+  },
+  {
+    "timestamp": "2025-01-01 10:00:04",
+    "price": 1.234,
+    "instrument": "EURUSD"
+  },
+  {
+    "timestamp": "2025-01-01 10:00:05",
+    "price": 1.233,
+    "instrument": "EURUSD",
+    "base_signal": true,
+    "base_direction": 1,
+    "base_cross_price": 1.2325
+  }
+]
