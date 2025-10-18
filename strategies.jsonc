@@ -1,0 +1,59 @@
+{
+  // Trading Strategies Configuration
+  // This file defines automated trading strategies and their parameters
+  
+  "strategies": [
+    {
+      // Strategy 1: Immediate Market Entry with Trailing Stop
+      "name": "strategy1",
+      
+      // Trigger: The signal that activates this strategy
+      // Options: "base_signal", "confirmation_signal", "reversal_signal", etc.
+      "trigger": "base_signal",
+      
+      // Distance: Entry distance in pips from current price
+      // 0 = immediate market order
+      // >0 = pending stop order (stop buy above price, stop sell below price)
+      "distance": 0,
+      
+      // SL: Stop Loss in pips
+      // Fixed stop loss distance from entry price
+      "sl": 20,
+      
+      // TSL: Trailing Stop Loss in pips
+      // Dynamic stop that follows price movement
+      // 0 = disabled
+      "tsl": 15,
+      
+      // Stopify: Lock in breakeven when trailing stop reaches entry price
+      // true = convert trailing stop to fixed stop at entry price (breakeven)
+      // false = keep trailing stop active
+      "stopify": true,
+      
+      // Adjust: Signal name that triggers strategy adjustment
+      // Examples: "aspr" (asperities), "pivot", "support_resistance", etc.
+      // empty string = no adjustment
+      "adjust": "aspr"
+    },
+    
+    {
+      "name": "strategy2",
+      "trigger": "base_signal",
+      "distance": 10,
+      "sl": 30,
+      "tsl": 0,
+      "stopify": false,
+      "adjust": ""
+    },
+    
+    {
+      "name": "strategy3",
+      "trigger": "confirmation_signal",
+      "distance": 0,
+      "sl": 15,
+      "tsl": 10,
+      "stopify": true,
+      "adjust": "pivot"
+    }
+  ]
+}
