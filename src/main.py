@@ -4,12 +4,13 @@ import json
 import uuid
 import requests
 import aia_utilities as au
+from datetime import datetime, timedelta
 
 REDIS_HOST = "localhost"
 REDIS_PORT = 6379
 PREFIX_INPUT = "algos"
 PREFIX_OUTPUT = "decisions"
-DEBUG = True
+DEBUG = False
 
 
 class DecisionProcessor:
@@ -21,6 +22,8 @@ class DecisionProcessor:
         self.file = []
         self.takes = []
         self.id = 0
+        self.last_price_timestamp = None
+        self.append_price = 0
     
     def notify(self, message):
         """Send notification via ntfy.sh"""
@@ -52,11 +55,12 @@ class DecisionProcessor:
         timestamp = input_dict['timestamp']
         instrument = input_dict['instrument']
         price = input_dict['price']
-        base_signal = input_dict.get('base_signal')
-        peak_signal = input_dict.get('peak_signal')
+        base_signal = input_dict.get('base_signal')         # 1, -1, or None, happens on signal once
+        base_direction = input_dict.get('base_direction')   # 1 or -1 or None, continues until opposite signal
+        peak_signal = input_dict.get('peak_signal')         # 1, -1, or None, happens on signal once
+        peak_direction = input_dict.get('peak_direction')   # 1 or -1 or None, continues until opposite signal
+
         
-        if base_signal:
-            print(f"Base signal detected: {base_signal} at {timestamp} for {instrument} at price {price}")
 
         # Calculate minimum distance
         pip = self.pipize(input_dict['price'])
@@ -64,10 +68,10 @@ class DecisionProcessor:
 
         # Default price, added to prices dictionary
         price_data = {
-            'id': 0,
-            'timestamp': input_dict['timestamp'],
-            'instrument': input_dict['instrument'],
-            'price': input_dict['price'],
+            'id': 'all',
+            'timestamp': timestamp,
+            'instrument': instrument,
+            'price': price,
         }
         self.prices.append(price_data)
         
@@ -75,40 +79,72 @@ class DecisionProcessor:
         
         # For each take in discrete takes
         for take in self.takes:
-            try:
-                # Skip takes that have already been filled
-                if take['order'] is None:
-                    continue
-                    
-                take['timestamp'] = input_dict['timestamp']
-                if take['direction'] > 0 and input_dict['price'] >= take['order']:
-                    take['take'] = input_dict['price']
-                    take['order'] = None
-                elif take['direction'] < 0 and input_dict['price'] <= take['order']:
-                    take['take'] = input_dict['price']
-                    take['order'] = None
-                self.file.append(take.copy())
-            except Exception as e:        
-                print(f"Error processing take: {e}")
+            # try:
+            if take['instrument'] == instrument:
+                take['timestamp'] = timestamp
+                if take['order']:
+                    if take['direction'] > 0 and price >= take['order']:
+                        take['take'] = price
+                        take['order'] = None
+                        self.file.append(take.copy())
+                        self.append_price = 2
+                    elif take['direction'] < 0 and price <= take['order']:
+                        take['take'] = price
+                        take['order'] = None
+                        self.file.append(take.copy())
+                        self.append_price = 2
 
-        # If signal to take, create a new take and append to takes
-        if 'base_signal' in input_dict:
-            if input_dict['base_signal'] is not None:
-                self.id += 1
-                if input_dict['base_direction'] > 0:
-                    order = input_dict['price'] + distance
-                elif input_dict['base_direction'] < 0:
-                    order = input_dict['price'] - distance
-                self.takes.append({
-                    'id': self.id,
-                    'timestamp': input_dict['timestamp'],
-                    'instrument': input_dict['instrument'],
-                    'direction': input_dict['base_direction'],
-                    'order': order,
-                    'take': None
-                })
-                print('new take')
+                # self.file.append(take.copy())
+                # except Exception as e:        
+                    # print(f"Error processing take: {e}")
 
+        if base_signal:
+            print(f"Base signal detected: {base_signal} at {timestamp} for {instrument} at price {price}")
+
+            self.id += 1
+            if base_direction > 0:
+                order = price + distance
+            elif base_direction < 0:
+                order = price - distance
+            take = {
+                'id': f"{instrument}_{self.id}",
+                'timestamp': timestamp,
+                'instrument': instrument,
+                'direction': base_direction,
+                'order': order,
+                'take': None
+            }
+            print(take)
+            self.takes.append(take.copy())
+            self.file.append(take.copy())
+            self.append_price = 2
+
+        # Add price data to self.file only if timestamp from last price timestamp is >= 1 minute
+        if self.append_price == 2:
+            self.append_price = 0
+            # append previous price data
+            if len(self.prices) > 0:
+                self.file.append(self.prices[-1])
+            
+            self.file.append(price_data)
+            print(f'{timestamp} take hit, appending price data')
+        else:
+            if self.last_price_timestamp is not None:
+                fmt = "%Y-%m-%d %H:%M:%S.%f"
+                last_time = datetime.strptime(self.last_price_timestamp, fmt)
+                current_time = datetime.strptime(timestamp, fmt)
+                if current_time - last_time >= timedelta(minutes=1):
+                    self.file.append(price_data)
+                    self.last_price_timestamp = timestamp
+                    print(f'{timestamp} been a minute, appending price data')
+                else:
+                    print(f'{timestamp} not been a minute, not appending price data')
+            else:
+                self.file.append(price_data)
+                self.last_price_timestamp = timestamp
+                print(f'{timestamp} first price data, appending')
+
+    
         # Write file to disk
         with open('decisions.json', 'w') as f:
             json.dump(self.file, f, indent=4)
